@@ -31,7 +31,7 @@ function MoveHud({ move }: { move: ParsedMove }) {
       <strong>{move.notation}</strong>
       <span>{FACE_NAMES[move.face]}</span>
       <em>{symbol}</em>
-      <small>{direction}</small>
+      <small>{direction}, view from {FACE_NAMES[move.face]}</small>
     </div>
   );
 }
