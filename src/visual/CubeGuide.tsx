@@ -65,7 +65,9 @@ function MoveCue({ move }: { move: ParsedMove }) {
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const pulse = 1 + Math.sin(clock.elapsedTime * 6) * 0.04;
+    const turn = clock.elapsedTime * 1.35 * (config.clockwise ? -1 : 1);
     ref.current.scale.setScalar(pulse);
+    ref.current.rotation.z = config.rotation[2] + turn;
   });
 
   return (
