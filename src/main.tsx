@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Camera, Cuboid, RefreshCw, RotateCcw, Shuffle, StepBack, StepForward, Wand2 } from "lucide-react";
+import { Camera, Cuboid, HelpCircle, RefreshCw, RotateCcw, Shuffle, StepBack, StepForward, Wand2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./styles.css";
 import {
@@ -245,6 +245,7 @@ function ScannerPanel({ currentFace, complete, capturedFaces, whiteBalance, onCa
   const [autoCapture, setAutoCapture] = useState(false);
   const [autoCountdown, setAutoCountdown] = useState(0);
   const [rescanFace, setRescanFace] = useState<FaceKey | "">("");
+  const [showScanHelp, setShowScanHelp] = useState(false);
   const autoTimerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -319,8 +320,10 @@ function ScannerPanel({ currentFace, complete, capturedFaces, whiteBalance, onCa
           complete={complete}
           capturedCount={capturedFaces.size}
           countdown={autoCountdown}
+          onHelp={() => setShowScanHelp(true)}
         />
         {cameraError ? <div className="camera-error">{cameraError}</div> : null}
+        {showScanHelp ? <ScanHelpDialog onClose={() => setShowScanHelp(false)} /> : null}
       </div>
       <canvas ref={canvasRef} hidden />
       <div className="scanner-toolbar">
@@ -368,11 +371,13 @@ function ScanGuideOverlay({
   complete,
   capturedCount,
   countdown,
+  onHelp,
 }: {
   currentFace: FaceKey;
   complete: boolean;
   capturedCount: number;
   countdown: number;
+  onHelp: () => void;
 }) {
   const step = Math.min(capturedCount + 1, SCAN_ORDER.length);
 
@@ -387,7 +392,40 @@ function ScanGuideOverlay({
         <span>{complete ? "Review or solve" : `${centerColorName(currentFace)} center facing camera`}</span>
       </div>
       <span className="scan-step">{complete ? `${SCAN_ORDER.length} / ${SCAN_ORDER.length}` : `${step} / ${SCAN_ORDER.length}`}</span>
+      <button className="scan-help-button" type="button" onClick={onHelp} aria-label="Scan setup help">
+        <HelpCircle size={18} />
+      </button>
       {countdown > 0 ? <em>{countdown}</em> : null}
+    </div>
+  );
+}
+
+function ScanHelpDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="scan-help-backdrop" role="dialog" aria-modal="true" aria-label="Scan setup help">
+      <div className="scan-help-panel">
+        <div className="scan-help-header">
+          <strong>Scan setup</strong>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close scan help">
+            <X size={16} />
+          </button>
+        </div>
+        <p>Use the center stickers as the reference. Centers stay fixed even when the cube is shuffled.</p>
+        <ol>
+          <li>Hold the white center on top.</li>
+          <li>Turn the cube so the green center faces the camera.</li>
+          <li>Scan the requested center colors in order.</li>
+        </ol>
+        <div className="scan-help-colors">
+          {SCAN_ORDER.map((face, index) => (
+            <span key={face}>
+              <i style={{ background: FACE_COLORS[face] }} />
+              {index + 1}. {FACE_NAMES[face]}
+            </span>
+          ))}
+        </div>
+        <p className="scan-help-note">Assumes the standard color scheme: white/yellow, green/blue, red/orange.</p>
+      </div>
     </div>
   );
 }
