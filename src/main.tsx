@@ -37,6 +37,7 @@ function App() {
   const validationErrors = useMemo(() => validateCubeState(state), [state]);
   const currentFace = SCAN_ORDER[captures.length] ?? "D";
   const previewState = useMemo(() => applyMoves(state, solution.slice(0, step)), [state, solution, step]);
+  const appliedMove = step > 0 ? solution[step - 1] : undefined;
   const capturedFaces = useMemo(() => new Set(captures.map((capture) => capture.face)), [captures]);
 
   const handleFaceCapture = (colors: FaceKey[]) => {
@@ -179,7 +180,7 @@ function App() {
           <p>{solution[step]?.tip ?? "The scanned cube appears here. Solve it to unlock move-by-move guidance."}</p>
           <code>{solution[step]?.notation ?? stateToFacelets(state).padEnd(54, "-")}</code>
         </div>
-        <CubeGuide state={previewState} activeMove={solution[step]} />
+        <CubeGuide state={previewState} activeMove={solution[step]} appliedMove={appliedMove} />
       </section>
     </main>
   );

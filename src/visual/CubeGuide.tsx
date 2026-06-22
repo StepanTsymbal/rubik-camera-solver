@@ -1,22 +1,53 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AmbientLight, DirectionalLight, DoubleSide, Group, Mesh } from "three";
-import { FACE_COLORS, FACE_NAMES, cubeStateToStickers, type CubeState, type ParsedMove, type Sticker3D } from "../cube";
+import { FACE_COLORS, FACE_NAMES, cubeStateToStickers, stateToFacelets, type CubeState, type ParsedMove, type Sticker3D } from "../cube";
 
 type CubeGuideProps = {
   state: CubeState;
   activeMove?: ParsedMove;
+  appliedMove?: ParsedMove;
 };
 
-export function CubeGuide({ state, activeMove }: CubeGuideProps) {
-  const stickers = useMemo(() => cubeStateToStickers(state), [state]);
+type LayerAnimation = {
+  move: ParsedMove;
+  targetState: CubeState;
+};
+
+export function CubeGuide({ state, activeMove, appliedMove }: CubeGuideProps) {
+  const [displayState, setDisplayState] = useState(state);
+  const [animation, setAnimation] = useState<LayerAnimation | undefined>();
+  const displayFacelets = useMemo(() => stateToFacelets(displayState), [displayState]);
+  const targetFacelets = useMemo(() => stateToFacelets(state), [state]);
+  const stickers = useMemo(() => cubeStateToStickers(displayState), [displayState]);
+  const guideMove = animation?.move ?? activeMove;
+
+  useEffect(() => {
+    if (displayFacelets === targetFacelets) return;
+    if (!appliedMove) {
+      setAnimation(undefined);
+      setDisplayState(state);
+      return;
+    }
+    setAnimation({ move: appliedMove, targetState: state });
+  }, [appliedMove, displayFacelets, state, targetFacelets]);
+
   return (
     <div className="cube-stage">
-      {activeMove ? <MoveHud move={activeMove} /> : null}
+      {guideMove ? <MoveHud move={guideMove} /> : null}
       <Canvas camera={{ position: [5.2, 4.8, 6.4], fov: 42 }}>
         <ambientLight intensity={0.8} />
         <directionalLight position={[3, 5, 4]} intensity={1.7} />
-        <RubikMesh stickers={stickers} activeMove={activeMove} />
+        <RubikMesh
+          stickers={stickers}
+          activeMove={guideMove}
+          animationMove={animation?.move}
+          onAnimationComplete={() => {
+            if (!animation) return;
+            setDisplayState(animation.targetState);
+            setAnimation(undefined);
+          }}
+        />
       </Canvas>
     </div>
   );
@@ -36,23 +67,71 @@ function MoveHud({ move }: { move: ParsedMove }) {
   );
 }
 
-function RubikMesh({ stickers, activeMove }: { stickers: Sticker3D[]; activeMove?: ParsedMove }) {
+function RubikMesh({
+  stickers,
+  activeMove,
+  animationMove,
+  onAnimationComplete,
+}: {
+  stickers: Sticker3D[];
+  activeMove?: ParsedMove;
+  animationMove?: ParsedMove;
+  onAnimationComplete: () => void;
+}) {
   const root = useRef<Group>(null);
+  const layer = useRef<Group>(null);
+  const animationStart = useRef<number | undefined>(undefined);
   const { size } = useThree();
   const sceneScale = size.width < 460 ? 0.66 : size.width < 720 ? 0.78 : 1;
+  const stillCubies = CUBIE_POSITIONS.filter((position) => !animationMove || !isInLayer(position, animationMove.face));
+  const animatedCubies = CUBIE_POSITIONS.filter((position) => animationMove && isInLayer(position, animationMove.face));
+  const stillStickers = stickers.filter((sticker) => !animationMove || !isInLayer(sticker.position, animationMove.face));
+  const animatedStickers = stickers.filter((sticker) => animationMove && isInLayer(sticker.position, animationMove.face));
+
+  useEffect(() => {
+    animationStart.current = undefined;
+    if (layer.current) {
+      layer.current.rotation.set(0, 0, 0);
+    }
+  }, [animationMove?.notation]);
 
   useFrame(({ clock }) => {
-    if (!root.current) return;
-    root.current.rotation.y = Math.sin(clock.elapsedTime * 0.35) * 0.12 - 0.55;
-    root.current.rotation.x = -0.42;
+    if (root.current) {
+      root.current.rotation.y = Math.sin(clock.elapsedTime * 0.35) * 0.12 - 0.55;
+      root.current.rotation.x = -0.42;
+    }
+
+    if (!layer.current || !animationMove) return;
+    if (animationStart.current === undefined) {
+      animationStart.current = clock.elapsedTime;
+    }
+    const elapsed = clock.elapsedTime - animationStart.current;
+    const progress = Math.min(1, elapsed / 0.42);
+    const eased = easeOutCubic(progress);
+    const { axis, angle } = layerTurn(animationMove);
+    layer.current.rotation.set(0, 0, 0);
+    layer.current.rotation[axis] = angle * eased;
+
+    if (progress >= 1) {
+      animationStart.current = undefined;
+      onAnimationComplete();
+    }
   });
 
   return (
     <group ref={root} scale={sceneScale}>
-      <CubieBlocks />
-      {stickers.map((sticker, index) => (
+      <CubieBlocks positions={stillCubies} />
+      {stillStickers.map((sticker, index) => (
         <StickerPlane key={`${sticker.position.join(",")}-${sticker.normal.join(",")}-${index}`} sticker={sticker} activeMove={activeMove} />
       ))}
+      {animationMove ? (
+        <group ref={layer}>
+          <CubieBlocks positions={animatedCubies} />
+          {animatedStickers.map((sticker, index) => (
+            <StickerPlane key={`animated-${sticker.position.join(",")}-${sticker.normal.join(",")}-${index}`} sticker={sticker} activeMove={animationMove} />
+          ))}
+        </group>
+      ) : null}
       {activeMove ? <MoveCue move={activeMove} /> : null}
     </group>
   );
@@ -115,19 +194,7 @@ function moveCueConfig(move: ParsedMove): {
   return { ...base, position: [0, 0, 1.2], rotation: [0, 0, clockwise ? 0 : Math.PI] };
 }
 
-function CubieBlocks() {
-  const positions = useMemo(() => {
-    const items: Array<[number, number, number]> = [];
-    for (let x = -1; x <= 1; x += 1) {
-      for (let y = -1; y <= 1; y += 1) {
-        for (let z = -1; z <= 1; z += 1) {
-          items.push([x, y, z]);
-        }
-      }
-    }
-    return items;
-  }, []);
-
+function CubieBlocks({ positions }: { positions: Array<[number, number, number]> }) {
   return (
     <>
       {positions.map((position) => (
@@ -138,6 +205,15 @@ function CubieBlocks() {
       ))}
     </>
   );
+}
+
+const CUBIE_POSITIONS: Array<[number, number, number]> = [];
+for (let x = -1; x <= 1; x += 1) {
+  for (let y = -1; y <= 1; y += 1) {
+    for (let z = -1; z <= 1; z += 1) {
+      CUBIE_POSITIONS.push([x, y, z]);
+    }
+  }
 }
 
 function StickerPlane({ sticker, activeMove }: { sticker: Sticker3D; activeMove?: ParsedMove }) {
@@ -175,4 +251,16 @@ function isInLayer([x, y, z]: [number, number, number], face: string): boolean {
     (face === "F" && z === 1) ||
     (face === "B" && z === -1)
   );
+}
+
+function layerTurn(move: ParsedMove): { axis: "x" | "y" | "z"; angle: number } {
+  const axis = move.face === "U" || move.face === "D" ? "y" : move.face === "R" || move.face === "L" ? "x" : "z";
+  const count = move.turns === 2 ? 2 : 1;
+  const dir = move.turns === -1 ? 1 : -1;
+  const sign = move.face === "D" || move.face === "L" || move.face === "B" ? -dir : dir;
+  return { axis, angle: sign * count * Math.PI / 2 };
+}
+
+function easeOutCubic(value: number): number {
+  return 1 - Math.pow(1 - value, 3);
 }
