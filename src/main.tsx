@@ -314,7 +314,12 @@ function ScannerPanel({ currentFace, complete, capturedFaces, whiteBalance, onCa
       <div className="camera-frame">
         <video ref={videoRef} autoPlay playsInline muted />
         <GridOverlay />
-        <ScanGuideOverlay currentFace={currentFace} complete={complete} capturedFaces={capturedFaces} countdown={autoCountdown} />
+        <ScanGuideOverlay
+          currentFace={currentFace}
+          complete={complete}
+          capturedCount={capturedFaces.size}
+          countdown={autoCountdown}
+        />
         {cameraError ? <div className="camera-error">{cameraError}</div> : null}
       </div>
       <canvas ref={canvasRef} hidden />
@@ -361,61 +366,39 @@ function ScannerPanel({ currentFace, complete, capturedFaces, whiteBalance, onCa
 function ScanGuideOverlay({
   currentFace,
   complete,
-  capturedFaces,
+  capturedCount,
   countdown,
 }: {
   currentFace: FaceKey;
   complete: boolean;
-  capturedFaces: Set<FaceKey>;
+  capturedCount: number;
   countdown: number;
 }) {
+  const step = Math.min(capturedCount + 1, SCAN_ORDER.length);
+
   return (
     <div className="scan-guide-card" aria-hidden="true">
-      <div>
+      <div className="scan-guide-primary">
         <p className="eyebrow">Rotate To</p>
-        <strong>{complete ? "All faces captured" : FACE_NAMES[currentFace]}</strong>
-        <span>{complete ? "Review or solve" : scanInstruction(currentFace)}</span>
+        <strong>{complete ? "Scan complete" : `${FACE_NAMES[currentFace]} face`}</strong>
       </div>
-      <GuideCube currentFace={currentFace} complete={complete} capturedFaces={capturedFaces} />
+      <div className="scan-guide-detail">
+        <span className="scan-color-chip" style={{ background: FACE_COLORS[currentFace] }} />
+        <span>{complete ? "Review or solve" : `${centerColorName(currentFace)} center facing camera`}</span>
+      </div>
+      <span className="scan-step">{complete ? `${SCAN_ORDER.length} / ${SCAN_ORDER.length}` : `${step} / ${SCAN_ORDER.length}`}</span>
       {countdown > 0 ? <em>{countdown}</em> : null}
     </div>
   );
 }
 
-function GuideCube({ currentFace, complete, capturedFaces }: { currentFace: FaceKey; complete: boolean; capturedFaces: Set<FaceKey> }) {
-  return (
-    <div className="guide-cube" data-face={currentFace}>
-      {(["U", "F", "R"] as FaceKey[]).map((face) => {
-        const active = !complete && face === currentFace;
-        const captured = capturedFaces.has(face);
-        return (
-          <span
-            className={active ? "active" : captured ? "captured" : ""}
-            key={face}
-            style={{ background: FACE_COLORS[face] }}
-          >
-            {face}
-          </span>
-        );
-      })}
-      <div className="guide-strip">
-        {(["B", "L", "D"] as FaceKey[]).map((face) => (
-          <i className={!complete && face === currentFace ? "active" : capturedFaces.has(face) ? "captured" : ""} key={face}>
-            {face}
-          </i>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function scanInstruction(face: FaceKey): string {
-  if (face === "U") return "White center facing camera";
-  if (face === "F") return "Green center facing camera";
-  if (face === "R") return "Red center facing camera";
-  if (face === "B") return "Blue center facing camera";
-  if (face === "L") return "Orange center facing camera";
-  return "Yellow center facing camera";
+function centerColorName(face: FaceKey): string {
+  if (face === "U") return "White";
+  if (face === "F") return "Green";
+  if (face === "R") return "Red";
+  if (face === "B") return "Blue";
+  if (face === "L") return "Orange";
+  return "Yellow";
 }
 
 function GridOverlay() {
