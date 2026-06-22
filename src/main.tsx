@@ -411,6 +411,17 @@ function ScanHelpDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p>Use the center stickers as the reference. Centers stay fixed even when the cube is shuffled.</p>
+        <div className="scan-orientation-diagram" aria-hidden="true">
+          <div className="orientation-cube">
+            <span className="orientation-top" style={{ background: FACE_COLORS.U }}>White</span>
+            <span className="orientation-front" style={{ background: FACE_COLORS.F }}>Green</span>
+            <span className="orientation-right" style={{ background: FACE_COLORS.R }}>Red</span>
+          </div>
+          <div>
+            <strong>Start position</strong>
+            <span>White center on top, green center facing camera.</span>
+          </div>
+        </div>
         <ol>
           <li>Hold the white center on top.</li>
           <li>Turn the cube so the green center faces the camera.</li>
