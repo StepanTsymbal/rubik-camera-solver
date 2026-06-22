@@ -48,12 +48,19 @@ Get-NetTCPConnection -LocalPort 5173 |
 
 Main files:
 
-- `src/main.tsx`: app shell, scanner workflow, capture state, solve button, playback controls.
+- `src/main.tsx`: app shell, scanner workflow, capture state, manual correction UI, test-cube loader, solve button, playback controls.
 - `src/cube.ts`: cube facelet types, validation, move parsing, move application for 3D preview.
 - `src/color.ts`: webcam grid sampling, white-balance correction, RGB to LAB conversion, nearest-color classification.
 - `src/solver.ts`: dynamic `cubejs` solver loading and facelet solve path.
-- `src/visual/CubeGuide.tsx`: React Three Fiber cube visualization.
+- `src/visual/CubeGuide.tsx`: React Three Fiber cube visualization, active-layer highlighting, animated move direction cue.
 - `src/styles.css`: responsive UI styling.
+- `scripts/generate_valid_cube_pngs.py`: creates a valid scrambled cube scan sheet and six face PNGs for camera testing.
+
+Current Git state:
+
+- Repository is initialized.
+- `master` includes the merged `feature/mobile-3d-guidance` branch.
+- Latest merge commit at time of this note: `c8463cc Merge mobile 3D guidance`.
 
 ## Scanner Behavior
 
@@ -76,6 +83,10 @@ User flow:
 
 Calibration currently samples only the center grid cell as the white reference.
 
+After capture, users can click stickers in the mini net and select a replacement color from the palette. Manual edits clear stale solution playback.
+
+The `Test Cube` button fills the net with a fresh valid random scramble each click. Use this for solver and playback testing without camera input.
+
 ## Solver Notes
 
 `cubejs@1.1.0` is pinned intentionally.
@@ -96,15 +107,23 @@ await import("cubejs/lib/solve");
 
 There is a solved-state guard in `src/solver.ts` because `cubejs` can return a non-empty algorithm even for a solved cube.
 
+`cube.solve(22)` uses 22 as a maximum depth, not as a shortest-solution target. It often returns non-optimal solutions near that bound. Every valid 3x3 cube is solvable in 20 face turns or fewer under the usual face-turn metric, but this solver is not proving optimality.
+
+Move direction rule shown in the app:
+
+- Clockwise/counterclockwise is judged as if looking directly at the named face.
+- Example: `B'` means turn the back layer counterclockwise as viewed from the back face.
+
 ## Known Limitations
 
 - No OpenCV.js contour detection yet.
 - No perspective correction / `warpPerspective` yet.
 - No Web Worker for CV or solver initialization yet.
 - Color classification is basic LAB nearest-color matching with white-balance normalization.
-- Validation checks counts and centers, but does not yet fully prove edge/corner parity legality before solver call.
-- 3D playback previews state after each move, but does not animate layer turns with rotation arcs yet.
+- Validation checks counts, centers, cubie combinations, orientation sums, and parity, but errors do not yet point to exact sticker locations in the net.
+- 3D playback previews state after each move and shows an animated direction cue, but does not animate the actual layer turning between states yet.
 - Camera permission must be accepted manually in the browser.
+- In-app browser automation was blocked in this environment by a browser runtime sandbox path issue, so visual QA has been manual plus build checks.
 
 ## Recommended Next Improvements
 
@@ -123,22 +142,24 @@ There is a solved-state guard in `src/solver.ts` because `cubejs` can return a n
    - Map clusters to faces by center stickers.
    - Surface confidence per sticker and allow manual correction.
 
-4. Add manual correction UI.
-   - Let users click a sticker in the mini net and assign a color.
-   - This is important because lighting/camera variation will cause occasional misreads.
+4. Improve validation UX.
+   - Point validation errors to exact stickers or pieces in the mini net.
+   - Highlight impossible edge/corner pieces directly.
+   - Replace raw combinations like `FBR` with face names and positions.
 
-5. Strengthen legality validation.
-   - Add edge/corner permutation and orientation validation.
-   - Report actionable errors before calling the solver.
+5. Improve solver behavior.
+   - Try progressively lower solve depths before falling back to 22.
+   - Consider showing solution length and generated scramble/test state details.
 
 6. Improve 3D guidance.
    - Animate the active layer turn.
-   - Add orientation arrows.
-   - Make tips more viewpoint-aware, especially for `B`, `D`, and inverse moves.
+   - Keep the current animated direction cue as an always-on orientation helper.
+   - Make tips more viewpoint-aware for physical handling, especially for `B`, `D`, and inverse moves.
 
 7. Add tests.
    - Unit-test facelet ordering, move parsing, move application, and validation.
    - Add solver smoke tests for solved and known scrambled states.
+   - Add regression coverage proving preview moves match `cubejs`.
 
 ## Verification Status
 
@@ -146,10 +167,17 @@ Last verified:
 
 ```powershell
 npm run build
+```
+
+Passed after the mobile 3D guidance merge. Vite may warn that the graphics chunk is larger than 500 kB because Three.js is bundled separately as `graphics`.
+
+Earlier production audit status:
+
+```powershell
 npm audit --omit=dev
 ```
 
-Both passed. Vite may warn that the graphics chunk is larger than 500 kB because Three.js is bundled separately as `graphics`.
+Passed with `cubejs@1.1.0`.
 
 ## Development Notes
 
