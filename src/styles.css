@@ -174,11 +174,15 @@ button {
   height: 34px;
   border: 1px solid rgba(226, 232, 240, 0.38);
   border-radius: 50%;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #e2e8f0;
   background: rgba(15, 23, 42, 0.42);
   cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
   pointer-events: auto;
 }
 
@@ -846,7 +850,44 @@ h2 {
   }
 
   .net-grid {
-    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(4, auto);
+    gap: 7px;
+  }
+
+  .face-U {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .face-L {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .face-F {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .face-R {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .face-B {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .face-D {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .mini-face {
+    padding: 16px 5px 5px;
+    gap: 2px;
   }
 
   .grid-overlay {

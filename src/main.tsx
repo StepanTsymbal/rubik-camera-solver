@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Camera, Cuboid, HelpCircle, RefreshCw, RotateCcw, Shuffle, StepBack, StepForward, Wand2, X } from "lucide-react";
+import { Camera, Cuboid, RefreshCw, RotateCcw, Shuffle, StepBack, StepForward, Wand2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import orientationGuide from "./assets/orientation-guide.png";
 import "./styles.css";
@@ -420,7 +420,7 @@ function ScanGuideOverlay({
       </div>
       <span className="scan-step">{complete ? `${SCAN_ORDER.length} / ${SCAN_ORDER.length}` : `${step} / ${SCAN_ORDER.length}`}</span>
       <button className="scan-help-button" type="button" onClick={onHelp} aria-label="Scan setup help">
-        <HelpCircle size={18} />
+        ?
       </button>
       {countdown > 0 ? <em>{countdown}</em> : null}
     </div>
