@@ -32,12 +32,12 @@ function App() {
   const [status, setStatus] = useState("Point the white face at the grid and calibrate.");
   const [isSolving, setIsSolving] = useState(false);
   const [selectedSticker, setSelectedSticker] = useState<{ face: FaceKey; index: number } | null>(null);
+  const [transitionMove, setTransitionMove] = useState<ParsedMove | undefined>();
 
   const state = useMemo(() => capturesToState(captures), [captures]);
   const validationErrors = useMemo(() => validateCubeState(state), [state]);
   const currentFace = SCAN_ORDER[captures.length] ?? "D";
   const previewState = useMemo(() => applyMoves(state, solution.slice(0, step)), [state, solution, step]);
-  const appliedMove = step > 0 ? solution[step - 1] : undefined;
   const capturedFaces = useMemo(() => new Set(captures.map((capture) => capture.face)), [captures]);
 
   const handleFaceCapture = (colors: FaceKey[]) => {
@@ -46,6 +46,7 @@ function App() {
     setCaptures((prev) => [...prev.filter((capture) => capture.face !== face), { face, colors }]);
     setSolution([]);
     setStep(0);
+    setTransitionMove(undefined);
     setSelectedSticker({ face, index: 4 });
     setStatus(`${FACE_NAMES[face]} face captured.`);
   };
@@ -54,6 +55,7 @@ function App() {
     setCaptures((prev) => prev.map((capture) => (capture.face === face ? { face, colors } : capture)));
     setSolution([]);
     setStep(0);
+    setTransitionMove(undefined);
     setSelectedSticker({ face, index: 4 });
     setStatus(`${FACE_NAMES[face]} face rescanned.`);
   };
@@ -62,6 +64,7 @@ function App() {
     setCaptures([]);
     setSolution([]);
     setStep(0);
+    setTransitionMove(undefined);
     setSelectedSticker(null);
     setStatus("Point the white face at the grid and calibrate.");
   };
@@ -71,6 +74,7 @@ function App() {
     setCaptures(testCaptures);
     setSolution([]);
     setStep(0);
+    setTransitionMove(undefined);
     setSelectedSticker(null);
     setStatus(`Test cube loaded: ${scramble}`);
   };
@@ -88,6 +92,7 @@ function App() {
     );
     setSolution([]);
     setStep(0);
+    setTransitionMove(undefined);
     setStatus(`${FACE_NAMES[face]} sticker ${index + 1} set to ${FACE_NAMES[color]}.`);
   };
 
@@ -95,6 +100,7 @@ function App() {
     setIsSolving(true);
     setSolution([]);
     setStep(0);
+    setTransitionMove(undefined);
     try {
       const notation = await solveCube(state);
       const parsed = parseSolution(notation);
@@ -105,6 +111,13 @@ function App() {
     } finally {
       setIsSolving(false);
     }
+  };
+
+  const handleStep = (nextStep: number) => {
+    if (nextStep === step) return;
+    const move = nextStep > step ? solution[nextStep - 1] : solution[nextStep];
+    setTransitionMove(nextStep > step ? move : invertMove(move));
+    setStep(nextStep);
   };
 
   return (
@@ -167,7 +180,7 @@ function App() {
             onColor={handleStickerColor}
           />
 
-          <PlaybackControls solution={solution} step={step} onStep={setStep} />
+          <PlaybackControls solution={solution} step={step} onStep={handleStep} />
         </section>
       </section>
 
@@ -180,10 +193,22 @@ function App() {
           <p>{solution[step]?.tip ?? "The scanned cube appears here. Solve it to unlock move-by-move guidance."}</p>
           <code>{solution[step]?.notation ?? stateToFacelets(state).padEnd(54, "-")}</code>
         </div>
-        <CubeGuide state={previewState} activeMove={solution[step]} appliedMove={appliedMove} />
+        <CubeGuide state={previewState} activeMove={solution[step]} appliedMove={transitionMove} />
       </section>
     </main>
   );
+}
+
+function invertMove(move: ParsedMove | undefined): ParsedMove | undefined {
+  if (!move) return undefined;
+  const turns = move.turns === 2 ? 2 : move.turns === 1 ? -1 : 1;
+  const notation = turns === 2 ? `${move.face}2` : turns === -1 ? `${move.face}'` : move.face;
+  return {
+    ...move,
+    turns,
+    notation,
+    tip: move.tip,
+  };
 }
 
 async function createTestCaptures(): Promise<{ captures: FaceCapture[]; scramble: string }> {
