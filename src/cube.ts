@@ -263,9 +263,10 @@ export function parseSolution(solution: string): ParsedMove[] {
 
 function moveToTip(face: MoveFace, turns: ParsedMove["turns"]): string {
   const layer = FACE_NAMES[face].toUpperCase();
+  const viewpoint = `as viewed from the ${layer} face`;
   if (turns === 2) return `Rotate the ${layer} layer 180 degrees.`;
-  if (turns === -1) return `Rotate the ${layer} layer counterclockwise.`;
-  return `Rotate the ${layer} layer clockwise.`;
+  if (turns === -1) return `Rotate the ${layer} layer counterclockwise, ${viewpoint}.`;
+  return `Rotate the ${layer} layer clockwise, ${viewpoint}.`;
 }
 
 export function applyMoves(state: CubeState, moves: ParsedMove[]): CubeState {
