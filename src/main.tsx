@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Camera, Cuboid, HelpCircle, RefreshCw, RotateCcw, Shuffle, StepBack, StepForward, Wand2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import orientationGuide from "./assets/orientation-guide.png";
 import "./styles.css";
 import {
   FACE_COLORS,
@@ -412,11 +413,7 @@ function ScanHelpDialog({ onClose }: { onClose: () => void }) {
         </div>
         <p>Use the center stickers as the reference. Centers stay fixed even when the cube is shuffled.</p>
         <div className="scan-orientation-diagram" aria-hidden="true">
-          <div className="orientation-cube">
-            <span className="orientation-top" style={{ background: FACE_COLORS.U }}>White</span>
-            <span className="orientation-front" style={{ background: FACE_COLORS.F }}>Green</span>
-            <span className="orientation-right" style={{ background: FACE_COLORS.R }}>Red</span>
-          </div>
+          <img src={orientationGuide} alt="" />
           <div>
             <strong>Start position</strong>
             <span>White center on top, green center facing camera.</span>
