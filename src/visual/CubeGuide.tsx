@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import { AmbientLight, DirectionalLight, Group, Mesh } from "three";
-import { FACE_COLORS, cubeStateToStickers, type CubeState, type ParsedMove, type Sticker3D } from "../cube";
+import { AmbientLight, DirectionalLight, DoubleSide, Group, Mesh } from "three";
+import { FACE_COLORS, FACE_NAMES, cubeStateToStickers, type CubeState, type ParsedMove, type Sticker3D } from "../cube";
 
 type CubeGuideProps = {
   state: CubeState;
@@ -12,11 +12,26 @@ export function CubeGuide({ state, activeMove }: CubeGuideProps) {
   const stickers = useMemo(() => cubeStateToStickers(state), [state]);
   return (
     <div className="cube-stage">
+      {activeMove ? <MoveHud move={activeMove} /> : null}
       <Canvas camera={{ position: [5.2, 4.8, 6.4], fov: 42 }}>
         <ambientLight intensity={0.8} />
         <directionalLight position={[3, 5, 4]} intensity={1.7} />
         <RubikMesh stickers={stickers} activeMove={activeMove} />
       </Canvas>
+    </div>
+  );
+}
+
+function MoveHud({ move }: { move: ParsedMove }) {
+  const direction = move.turns === 2 ? "180 turn" : move.turns === -1 ? "counterclockwise" : "clockwise";
+  const symbol = move.turns === 2 ? "180" : move.turns === -1 ? "CCW" : "CW";
+
+  return (
+    <div className="move-hud" aria-hidden="true">
+      <strong>{move.notation}</strong>
+      <span>{FACE_NAMES[move.face]}</span>
+      <em>{symbol}</em>
+      <small>{direction}</small>
     </div>
   );
 }
@@ -55,14 +70,25 @@ function MoveCue({ move }: { move: ParsedMove }) {
 
   return (
     <group ref={ref} position={config.position} rotation={config.rotation}>
+      <mesh position={[0, 0, -0.035]}>
+        <planeGeometry args={[3.35, 3.35]} />
+        <meshStandardMaterial color="#f59e0b" transparent opacity={0.13} side={DoubleSide} depthWrite={false} />
+      </mesh>
       <mesh>
-        <torusGeometry args={[1.85, 0.035, 12, 72, config.arc]} />
-        <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={0.28} roughness={0.35} />
+        <torusGeometry args={[1.72, 0.06, 16, 96, config.arc]} />
+        <meshStandardMaterial color="#f97316" emissive="#f59e0b" emissiveIntensity={0.42} roughness={0.32} />
       </mesh>
-      <mesh position={config.headPosition} rotation={config.headRotation}>
-        <coneGeometry args={[0.16, 0.38, 3]} />
-        <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={0.34} roughness={0.35} />
-      </mesh>
+      {[0.62, 1].map((ratio) => {
+        const angle = config.signedArc * ratio;
+        const position: [number, number, number] = [Math.cos(angle) * 1.72, Math.sin(angle) * 1.72, 0];
+        const rotation: [number, number, number] = [0, 0, angle + (config.clockwise ? -Math.PI / 2 : Math.PI / 2)];
+        return (
+          <mesh key={ratio} position={position} rotation={rotation}>
+            <coneGeometry args={[0.24, 0.58, 32]} />
+            <meshStandardMaterial color="#f97316" emissive="#f59e0b" emissiveIntensity={0.5} roughness={0.32} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
@@ -70,22 +96,21 @@ function MoveCue({ move }: { move: ParsedMove }) {
 function moveCueConfig(move: ParsedMove): {
   position: [number, number, number];
   rotation: [number, number, number];
-  headPosition: [number, number, number];
-  headRotation: [number, number, number];
   arc: number;
+  signedArc: number;
+  clockwise: boolean;
 } {
   const clockwise = move.turns !== -1;
   const arc = move.turns === 2 ? Math.PI * 1.85 : Math.PI * 1.35;
-  const headAngle = clockwise ? arc : -arc;
-  const headPosition: [number, number, number] = [Math.cos(headAngle) * 1.85, Math.sin(headAngle) * 1.85, 0];
-  const headRotation: [number, number, number] = [0, 0, headAngle + (clockwise ? -Math.PI / 2 : Math.PI / 2)];
+  const signedArc = clockwise ? arc : -arc;
+  const base = { arc, signedArc, clockwise };
 
-  if (move.face === "U") return { position: [0, 1.18, 0], rotation: [-Math.PI / 2, 0, clockwise ? 0 : Math.PI], headPosition, headRotation, arc };
-  if (move.face === "D") return { position: [0, -1.18, 0], rotation: [Math.PI / 2, 0, clockwise ? Math.PI : 0], headPosition, headRotation, arc };
-  if (move.face === "R") return { position: [1.18, 0, 0], rotation: [0, Math.PI / 2, clockwise ? 0 : Math.PI], headPosition, headRotation, arc };
-  if (move.face === "L") return { position: [-1.18, 0, 0], rotation: [0, -Math.PI / 2, clockwise ? Math.PI : 0], headPosition, headRotation, arc };
-  if (move.face === "B") return { position: [0, 0, -1.18], rotation: [0, Math.PI, clockwise ? Math.PI : 0], headPosition, headRotation, arc };
-  return { position: [0, 0, 1.18], rotation: [0, 0, clockwise ? 0 : Math.PI], headPosition, headRotation, arc };
+  if (move.face === "U") return { ...base, position: [0, 1.2, 0], rotation: [-Math.PI / 2, 0, clockwise ? 0 : Math.PI] };
+  if (move.face === "D") return { ...base, position: [0, -1.2, 0], rotation: [Math.PI / 2, 0, clockwise ? Math.PI : 0] };
+  if (move.face === "R") return { ...base, position: [1.2, 0, 0], rotation: [0, Math.PI / 2, clockwise ? 0 : Math.PI] };
+  if (move.face === "L") return { ...base, position: [-1.2, 0, 0], rotation: [0, -Math.PI / 2, clockwise ? Math.PI : 0] };
+  if (move.face === "B") return { ...base, position: [0, 0, -1.2], rotation: [0, Math.PI, clockwise ? Math.PI : 0] };
+  return { ...base, position: [0, 0, 1.2], rotation: [0, 0, clockwise ? 0 : Math.PI] };
 }
 
 function CubieBlocks() {

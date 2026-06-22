@@ -446,6 +446,7 @@ h2 {
 }
 
 .cube-stage {
+  position: relative;
   min-height: 420px;
   height: clamp(420px, 48vh, 640px);
   overflow: hidden;
@@ -455,6 +456,61 @@ h2 {
 .cube-stage canvas {
   display: block;
   touch-action: none;
+}
+
+.move-hud {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 3px 9px;
+  min-width: 126px;
+  padding: 10px 12px;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  border-radius: 8px;
+  background: rgba(255, 251, 235, 0.92);
+  box-shadow: 0 10px 24px rgba(120, 53, 15, 0.14);
+  pointer-events: none;
+}
+
+.move-hud strong {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #172033;
+  font-size: 1rem;
+}
+
+.move-hud span {
+  font-size: 0.76rem;
+  font-weight: 900;
+  color: #78350f;
+  text-transform: uppercase;
+}
+
+.move-hud em {
+  justify-self: start;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #7c2d12;
+  background: #fed7aa;
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.move-hud small {
+  grid-column: 1 / -1;
+  color: #92400e;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 @media (max-width: 980px) {
@@ -530,5 +586,17 @@ h2 {
   .cube-stage {
     min-height: 340px;
     height: min(92vw, 420px);
+  }
+
+  .move-hud {
+    top: 10px;
+    right: 10px;
+    min-width: 112px;
+    padding: 8px 10px;
+  }
+
+  .move-hud strong {
+    width: 36px;
+    height: 36px;
   }
 }
