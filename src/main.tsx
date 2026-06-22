@@ -1,7 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Camera, Cuboid, RotateCcw, Shuffle, StepBack, StepForward, Wand2 } from "lucide-react";
+import { Camera, Cuboid, HelpCircle, RefreshCw, RotateCcw, Shuffle, StepBack, StepForward, Wand2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import orientationGuide from "./assets/orientation-guide.png";
 import "./styles.css";
 import {
   FACE_COLORS,
@@ -36,6 +37,7 @@ function App() {
   const validationErrors = useMemo(() => validateCubeState(state), [state]);
   const currentFace = SCAN_ORDER[captures.length] ?? "D";
   const previewState = useMemo(() => applyMoves(state, solution.slice(0, step)), [state, solution, step]);
+  const capturedFaces = useMemo(() => new Set(captures.map((capture) => capture.face)), [captures]);
 
   const handleFaceCapture = (colors: FaceKey[]) => {
     if (captures.length >= SCAN_ORDER.length) return;
@@ -45,6 +47,14 @@ function App() {
     setStep(0);
     setSelectedSticker({ face, index: 4 });
     setStatus(`${FACE_NAMES[face]} face captured.`);
+  };
+
+  const handleFaceRescan = (face: FaceKey, colors: FaceKey[]) => {
+    setCaptures((prev) => prev.map((capture) => (capture.face === face ? { face, colors } : capture)));
+    setSolution([]);
+    setStep(0);
+    setSelectedSticker({ face, index: 4 });
+    setStatus(`${FACE_NAMES[face]} face rescanned.`);
   };
 
   const handleReset = () => {
@@ -102,9 +112,11 @@ function App() {
         <ScannerPanel
           currentFace={currentFace}
           complete={captures.length === SCAN_ORDER.length}
+          capturedFaces={capturedFaces}
           whiteBalance={whiteBalance}
           onCalibrate={setWhiteBalance}
           onCapture={handleFaceCapture}
+          onRescan={handleFaceRescan}
         />
 
         <section className="side-panel" aria-label="Cube controls">
@@ -118,7 +130,7 @@ function App() {
             </button>
           </div>
 
-          <Progress captures={captures} />
+          <Progress captures={captures} currentFace={currentFace} complete={captures.length === SCAN_ORDER.length} />
 
           <div className="status-line" role="status">
             {status}
@@ -220,15 +232,22 @@ function faceletsToCaptures(facelets: string): FaceCapture[] {
 type ScannerPanelProps = {
   currentFace: FaceKey;
   complete: boolean;
+  capturedFaces: Set<FaceKey>;
   whiteBalance?: Rgb;
   onCalibrate: (rgb: Rgb) => void;
   onCapture: (colors: FaceKey[]) => void;
+  onRescan: (face: FaceKey, colors: FaceKey[]) => void;
 };
 
-function ScannerPanel({ currentFace, complete, whiteBalance, onCalibrate, onCapture }: ScannerPanelProps) {
+function ScannerPanel({ currentFace, complete, capturedFaces, whiteBalance, onCalibrate, onCapture, onRescan }: ScannerPanelProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cameraError, setCameraError] = useState("");
+  const [autoCapture, setAutoCapture] = useState(false);
+  const [autoCountdown, setAutoCountdown] = useState(0);
+  const [rescanFace, setRescanFace] = useState<FaceKey | "">("");
+  const [showScanHelp, setShowScanHelp] = useState(false);
+  const autoTimerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     let stream: MediaStream | undefined;
@@ -247,6 +266,27 @@ function ScannerPanel({ currentFace, complete, whiteBalance, onCalibrate, onCapt
     };
   }, []);
 
+  useEffect(() => {
+    window.clearInterval(autoTimerRef.current);
+    setAutoCountdown(0);
+
+    if (!autoCapture || complete) return;
+
+    setAutoCountdown(3);
+    autoTimerRef.current = window.setInterval(() => {
+      setAutoCountdown((value) => {
+        if (value <= 1) {
+          window.clearInterval(autoTimerRef.current);
+          capture();
+          return 0;
+        }
+        return value - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(autoTimerRef.current);
+  }, [autoCapture, complete, currentFace]);
+
   const readSamples = () => {
     if (!videoRef.current || !canvasRef.current) return [];
     return sampleGrid(videoRef.current, canvasRef.current);
@@ -264,12 +304,27 @@ function ScannerPanel({ currentFace, complete, whiteBalance, onCalibrate, onCapt
     onCapture(classifyFace(samples, whiteBalance));
   };
 
+  const rescan = () => {
+    if (!rescanFace) return;
+    const samples = readSamples();
+    if (samples.length === 0) return;
+    onRescan(rescanFace, classifyFace(samples, whiteBalance));
+  };
+
   return (
     <section className="scanner-panel" aria-label="Camera scanner">
       <div className="camera-frame">
         <video ref={videoRef} autoPlay playsInline muted />
         <GridOverlay />
+        <ScanGuideOverlay
+          currentFace={currentFace}
+          complete={complete}
+          capturedCount={capturedFaces.size}
+          countdown={autoCountdown}
+          onHelp={() => setShowScanHelp(true)}
+        />
         {cameraError ? <div className="camera-error">{cameraError}</div> : null}
+        {showScanHelp ? <ScanHelpDialog onClose={() => setShowScanHelp(false)} /> : null}
       </div>
       <canvas ref={canvasRef} hidden />
       <div className="scanner-toolbar">
@@ -278,6 +333,10 @@ function ScannerPanel({ currentFace, complete, whiteBalance, onCalibrate, onCapt
           <strong>{complete ? "Scan complete" : `${FACE_NAMES[currentFace]} face`}</strong>
         </div>
         <div className="button-row">
+          <label className="toggle-action">
+            <input type="checkbox" checked={autoCapture} disabled={complete} onChange={(event) => setAutoCapture(event.target.checked)} />
+            Auto
+          </label>
           <button className="secondary-action" type="button" onClick={calibrate} title="Calibrate white balance">
             <Camera size={18} />
             Calibrate
@@ -287,8 +346,105 @@ function ScannerPanel({ currentFace, complete, whiteBalance, onCalibrate, onCapt
           </button>
         </div>
       </div>
+      {complete ? (
+        <div className="rescan-toolbar">
+          <label>
+            <span>Rescan</span>
+            <select value={rescanFace} onChange={(event) => setRescanFace(event.target.value as FaceKey | "")}>
+              <option value="">Choose face</option>
+              {SCAN_ORDER.map((face) => (
+                <option key={face} value={face}>{FACE_NAMES[face]}</option>
+              ))}
+            </select>
+          </label>
+          <button className="secondary-action" type="button" disabled={!rescanFace} onClick={rescan}>
+            <RefreshCw size={18} />
+            Replace
+          </button>
+        </div>
+      ) : null}
     </section>
   );
+}
+
+function ScanGuideOverlay({
+  currentFace,
+  complete,
+  capturedCount,
+  countdown,
+  onHelp,
+}: {
+  currentFace: FaceKey;
+  complete: boolean;
+  capturedCount: number;
+  countdown: number;
+  onHelp: () => void;
+}) {
+  const step = Math.min(capturedCount + 1, SCAN_ORDER.length);
+
+  return (
+    <div className="scan-guide-card" aria-hidden="true">
+      <div className="scan-guide-primary">
+        <p className="eyebrow">Rotate To</p>
+        <strong>{complete ? "Scan complete" : `${FACE_NAMES[currentFace]} face`}</strong>
+      </div>
+      <div className="scan-guide-detail">
+        <span className="scan-color-chip" style={{ background: FACE_COLORS[currentFace] }} />
+        <span>{complete ? "Review or solve" : `${centerColorName(currentFace)} center facing camera`}</span>
+      </div>
+      <span className="scan-step">{complete ? `${SCAN_ORDER.length} / ${SCAN_ORDER.length}` : `${step} / ${SCAN_ORDER.length}`}</span>
+      <button className="scan-help-button" type="button" onClick={onHelp} aria-label="Scan setup help">
+        <HelpCircle size={18} />
+      </button>
+      {countdown > 0 ? <em>{countdown}</em> : null}
+    </div>
+  );
+}
+
+function ScanHelpDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="scan-help-backdrop" role="dialog" aria-modal="true" aria-label="Scan setup help">
+      <div className="scan-help-panel">
+        <div className="scan-help-header">
+          <strong>Scan setup</strong>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close scan help">
+            <X size={16} />
+          </button>
+        </div>
+        <p>Use the center stickers as the reference. Centers stay fixed even when the cube is shuffled.</p>
+        <div className="scan-orientation-diagram" aria-hidden="true">
+          <img src={orientationGuide} alt="" />
+          <div>
+            <strong>Start position</strong>
+            <span>White center on top, green center facing camera.</span>
+          </div>
+        </div>
+        <ol>
+          <li>Hold the white center on top.</li>
+          <li>Turn the cube so the green center faces the camera.</li>
+          <li>Scan the requested center colors in order.</li>
+        </ol>
+        <div className="scan-help-colors">
+          {SCAN_ORDER.map((face, index) => (
+            <span key={face}>
+              <i style={{ background: FACE_COLORS[face] }} />
+              {index + 1}. {FACE_NAMES[face]}
+            </span>
+          ))}
+        </div>
+        <p className="scan-help-note">Assumes the standard color scheme: white/yellow, green/blue, red/orange.</p>
+      </div>
+    </div>
+  );
+}
+
+function centerColorName(face: FaceKey): string {
+  if (face === "U") return "White";
+  if (face === "F") return "Green";
+  if (face === "R") return "Red";
+  if (face === "B") return "Blue";
+  if (face === "L") return "Orange";
+  return "Yellow";
 }
 
 function GridOverlay() {
@@ -301,13 +457,14 @@ function GridOverlay() {
   );
 }
 
-function Progress({ captures }: { captures: FaceCapture[] }) {
+function Progress({ captures, currentFace, complete }: { captures: FaceCapture[]; currentFace: FaceKey; complete: boolean }) {
   return (
     <div className="scan-progress" aria-label="Scan progress">
       {SCAN_ORDER.map((face) => {
         const done = captures.some((capture) => capture.face === face);
+        const active = !complete && face === currentFace;
         return (
-          <div className={done ? "progress-item done" : "progress-item"} key={face}>
+          <div className={done ? "progress-item done" : active ? "progress-item active" : "progress-item"} key={face}>
             <span style={{ background: FACE_COLORS[face] }} />
             <strong>{FACE_NAMES[face]}</strong>
           </div>
