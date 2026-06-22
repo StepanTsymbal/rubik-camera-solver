@@ -1,4 +1,4 @@
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { AmbientLight, DirectionalLight, Group, Mesh } from "three";
 import { FACE_COLORS, cubeStateToStickers, type CubeState, type ParsedMove, type Sticker3D } from "../cube";
@@ -12,7 +12,7 @@ export function CubeGuide({ state, activeMove }: CubeGuideProps) {
   const stickers = useMemo(() => cubeStateToStickers(state), [state]);
   return (
     <div className="cube-stage">
-      <Canvas camera={{ position: [4.2, 4.0, 5.2], fov: 38 }}>
+      <Canvas camera={{ position: [5.2, 4.8, 6.4], fov: 42 }}>
         <ambientLight intensity={0.8} />
         <directionalLight position={[3, 5, 4]} intensity={1.7} />
         <RubikMesh stickers={stickers} activeMove={activeMove} />
@@ -23,6 +23,8 @@ export function CubeGuide({ state, activeMove }: CubeGuideProps) {
 
 function RubikMesh({ stickers, activeMove }: { stickers: Sticker3D[]; activeMove?: ParsedMove }) {
   const root = useRef<Group>(null);
+  const { size } = useThree();
+  const sceneScale = size.width < 460 ? 0.66 : size.width < 720 ? 0.78 : 1;
 
   useFrame(({ clock }) => {
     if (!root.current) return;
@@ -31,13 +33,59 @@ function RubikMesh({ stickers, activeMove }: { stickers: Sticker3D[]; activeMove
   });
 
   return (
-    <group ref={root}>
+    <group ref={root} scale={sceneScale}>
       <CubieBlocks />
       {stickers.map((sticker, index) => (
         <StickerPlane key={`${sticker.position.join(",")}-${sticker.normal.join(",")}-${index}`} sticker={sticker} activeMove={activeMove} />
       ))}
+      {activeMove ? <MoveCue move={activeMove} /> : null}
     </group>
   );
+}
+
+function MoveCue({ move }: { move: ParsedMove }) {
+  const ref = useRef<Group>(null);
+  const config = moveCueConfig(move);
+
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const pulse = 1 + Math.sin(clock.elapsedTime * 6) * 0.04;
+    ref.current.scale.setScalar(pulse);
+  });
+
+  return (
+    <group ref={ref} position={config.position} rotation={config.rotation}>
+      <mesh>
+        <torusGeometry args={[1.85, 0.035, 12, 72, config.arc]} />
+        <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={0.28} roughness={0.35} />
+      </mesh>
+      <mesh position={config.headPosition} rotation={config.headRotation}>
+        <coneGeometry args={[0.16, 0.38, 3]} />
+        <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={0.34} roughness={0.35} />
+      </mesh>
+    </group>
+  );
+}
+
+function moveCueConfig(move: ParsedMove): {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  headPosition: [number, number, number];
+  headRotation: [number, number, number];
+  arc: number;
+} {
+  const clockwise = move.turns !== -1;
+  const arc = move.turns === 2 ? Math.PI * 1.85 : Math.PI * 1.35;
+  const headAngle = clockwise ? arc : -arc;
+  const headPosition: [number, number, number] = [Math.cos(headAngle) * 1.85, Math.sin(headAngle) * 1.85, 0];
+  const headRotation: [number, number, number] = [0, 0, headAngle + (clockwise ? -Math.PI / 2 : Math.PI / 2)];
+
+  if (move.face === "U") return { position: [0, 1.18, 0], rotation: [-Math.PI / 2, 0, clockwise ? 0 : Math.PI], headPosition, headRotation, arc };
+  if (move.face === "D") return { position: [0, -1.18, 0], rotation: [Math.PI / 2, 0, clockwise ? Math.PI : 0], headPosition, headRotation, arc };
+  if (move.face === "R") return { position: [1.18, 0, 0], rotation: [0, Math.PI / 2, clockwise ? 0 : Math.PI], headPosition, headRotation, arc };
+  if (move.face === "L") return { position: [-1.18, 0, 0], rotation: [0, -Math.PI / 2, clockwise ? Math.PI : 0], headPosition, headRotation, arc };
+  if (move.face === "B") return { position: [0, 0, -1.18], rotation: [0, Math.PI, clockwise ? Math.PI : 0], headPosition, headRotation, arc };
+  return { position: [0, 0, 1.18], rotation: [0, 0, clockwise ? 0 : Math.PI], headPosition, headRotation, arc };
 }
 
 function CubieBlocks() {

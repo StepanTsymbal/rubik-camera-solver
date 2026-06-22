@@ -447,7 +447,14 @@ h2 {
 
 .cube-stage {
   min-height: 420px;
+  height: clamp(420px, 48vh, 640px);
+  overflow: hidden;
   background: radial-gradient(circle at 55% 38%, #ffffff 0, #edf3f8 42%, #dce7f0 100%);
+}
+
+.cube-stage canvas {
+  display: block;
+  touch-action: none;
 }
 
 @media (max-width: 980px) {
@@ -460,6 +467,10 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .viewer-band {
+    min-height: 0;
+  }
+
   .scanner-panel {
     grid-template-rows: minmax(360px, 58vh) auto;
   }
@@ -467,6 +478,12 @@ h2 {
   .viewer-copy {
     border-right: 0;
     border-bottom: 1px solid #e5eaf0;
+    justify-content: flex-start;
+  }
+
+  .cube-stage {
+    min-height: 360px;
+    height: min(78vw, 460px);
   }
 }
 
@@ -496,5 +513,22 @@ h2 {
 
   .grid-overlay {
     width: min(82vw, 52vh);
+  }
+
+  .viewer-copy,
+  .playback,
+  .status-line,
+  .validation {
+    padding: 14px;
+  }
+
+  .viewer-copy code {
+    font-size: 0.75rem;
+    padding: 10px;
+  }
+
+  .cube-stage {
+    min-height: 340px;
+    height: min(92vw, 420px);
   }
 }
