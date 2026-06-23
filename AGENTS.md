@@ -48,8 +48,8 @@ Get-NetTCPConnection -LocalPort 5173 |
 
 Main files:
 
-- `src/main.tsx`: app shell, scanner workflow, capture state, manual correction UI, test-cube loader, solve button, playback controls.
-- `src/cube.ts`: cube facelet types, validation, move parsing, move application for 3D preview.
+- `src/main.tsx`: app shell, scanner workflow, capture state, center-color mapping UI, manual correction UI, test-cube loader, solve button, playback controls.
+- `src/cube.ts`: cube facelet types, center-based color mapping, validation, move parsing, move application for 3D preview.
 - `src/color.ts`: webcam grid sampling, white-balance correction, RGB to LAB conversion, nearest-color classification.
 - `src/solver.ts`: dynamic `cubejs` solver loading and facelet solve path.
 - `src/visual/CubeGuide.tsx`: React Three Fiber cube visualization, active-layer highlighting, animated move direction cue.
@@ -59,8 +59,9 @@ Main files:
 Current Git state:
 
 - Repository is initialized.
+- Working branch at time of this note: `feature/center-color-mapping`.
 - `master` includes the merged `feature/mobile-3d-guidance` branch.
-- Latest merge commit at time of this note: `c8463cc Merge mobile 3D guidance`.
+- Latest completed merge commit before this branch: `c8463cc Merge mobile 3D guidance`.
 
 ## Scanner Behavior
 
@@ -82,6 +83,10 @@ User flow:
 6. Use `Next` / `Back` for 3D move playback.
 
 Calibration currently samples only the center grid cell as the white reference.
+
+Captured sticker colors are stored as physical color labels first. Before validation and solving, the app maps colors to logical cube faces using the six captured center stickers. This supports cubes where the physical color scheme differs from the typical `R = red` and `L = orange` assignment, as long as the requested physical face positions are scanned correctly.
+
+The scan progress UI starts with typical color hints, then switches each completed face to its captured center color. If a captured center differs from the typical scheme, the app shows a calm note that center colors define the face mapping for the scan.
 
 After capture, users can click stickers in the mini net and select a replacement color from the palette. Manual edits clear stale solution playback.
 
@@ -119,7 +124,8 @@ Move direction rule shown in the app:
 - No OpenCV.js contour detection yet.
 - No perspective correction / `warpPerspective` yet.
 - No Web Worker for CV or solver initialization yet.
-- Color classification is basic LAB nearest-color matching with white-balance normalization.
+- No camera mirroring toggle yet. Rear phone cameras are usually fine; mirrored webcam/front-camera feeds can still reverse sticker order.
+- Color classification is basic LAB nearest-color matching with white-balance normalization. It now maps classified colors to logical faces by captured centers, but does not yet cluster all 54 raw samples.
 - Validation checks counts, centers, cubie combinations, orientation sums, and parity, but errors do not yet point to exact sticker locations in the net.
 - 3D playback previews state after each move and shows an animated direction cue, but does not animate the actual layer turning between states yet.
 - Camera permission must be accepted manually in the browser.
@@ -139,7 +145,7 @@ Move direction rule shown in the app:
 3. Improve color classification.
    - Capture all 54 raw RGB/LAB samples first.
    - Cluster into 6 color groups.
-   - Map clusters to faces by center stickers.
+   - Keep mapping clusters to faces by center stickers.
    - Surface confidence per sticker and allow manual correction.
 
 4. Improve validation UX.
@@ -169,7 +175,7 @@ Last verified:
 npm run build
 ```
 
-Passed after the mobile 3D guidance merge. Vite may warn that the graphics chunk is larger than 500 kB because Three.js is bundled separately as `graphics`.
+Passed on `feature/center-color-mapping`. Vite may warn that the graphics chunk is larger than 500 kB because Three.js is bundled separately as `graphics`.
 
 Earlier production audit status:
 

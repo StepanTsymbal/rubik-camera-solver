@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-06-22
+Last updated: 2026-06-23
 
 ## Current State
 
@@ -12,6 +12,8 @@ Implemented:
 - White-balance calibration from the center sample.
 - LAB nearest-color classification.
 - Six-face capture flow in app order: Top, Front, Right, Back, Left, Bottom.
+- Center-based color mapping before validation and solving, so non-typical red/orange handedness can work when face positions are scanned correctly.
+- Progress UI that starts with typical color hints and then shows captured center colors, with a calm note when the captured scheme differs.
 - Manual sticker correction via clickable mini net and color palette.
 - Cube validation for counts, centers, invalid pieces, duplicate pieces, orientation sums, and parity.
 - Dynamic `cubejs@1.1.0` solver loading.
@@ -26,7 +28,7 @@ Implemented:
 - Main branch: `master`
 - Merged feature branch: `feature/mobile-3d-guidance`
 - Latest merge commit at time of this note: `c8463cc Merge mobile 3D guidance`
-- Working tree was clean after merge and build.
+- Active branch at time of this note: `feature/center-color-mapping`
 
 Useful commands:
 
@@ -43,6 +45,8 @@ npm run dev -- --port 5173
 - Move direction uses standard cube notation: clockwise/counterclockwise is viewed from the named face.
 - The 3D preview state has been verified against `cubejs` for basic moves and a generated full solution.
 - The app still relies on fixed-grid sampling; camera alignment and lighting matter.
+- Captured physical colors are normalized through the six center stickers before solver validation. UI playback maps solver state back to the captured center colors.
+- Camera mirroring is not corrected yet. Use a non-mirrored rear phone camera when possible; mirrored webcam/front-camera feeds can still reverse sticker order.
 
 ## Recommended Next Iteration
 
@@ -63,6 +67,7 @@ After tests, improve scanning:
 - Map clusters using center stickers.
 - Surface low-confidence stickers for correction.
 - Add OpenCV.js contour detection and perspective correction.
+- Add a camera mirror toggle that reverses sampled columns and keeps the preview/sampling model consistent.
 
 Then improve guidance:
 
@@ -75,6 +80,7 @@ Then improve guidance:
 - No OpenCV.js detection or perspective correction yet.
 - No Web Worker for CV or solver initialization yet.
 - Color classification remains basic under mixed lighting.
+- No camera mirror toggle yet.
 - Validation errors are accurate but not yet localized to exact mini-net stickers.
 - 3D guide shows animated direction cues but does not rotate the actual layer during transitions.
 - Browser camera permission must be accepted manually.

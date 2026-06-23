@@ -1,14 +1,14 @@
-import { stateToFacelets, validateCubeState, type CubeState } from "./cube";
+import { normalizeStateByCenters, stateToFacelets, validateScannedState, type CubeState } from "./cube";
 
 let initialized = false;
 
 export async function solveCube(state: CubeState): Promise<string> {
-  const validationErrors = validateCubeState(state);
+  const validationErrors = validateScannedState(state);
   if (validationErrors.length > 0) {
     throw new Error(validationErrors.join(" "));
   }
 
-  const facelets = stateToFacelets(state);
+  const facelets = stateToFacelets(normalizeStateByCenters(state));
   const module = await import("cubejs");
   await import("cubejs/lib/solve");
   const Cube = module.default;
