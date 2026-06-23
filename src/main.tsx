@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import orientationGuide from "./assets/orientation-guide.png";
 import "./styles.css";
 import {
+  COLOR_NAMES,
   FACE_COLORS,
   FACE_NAMES,
   FACE_ORDER,
@@ -12,9 +13,12 @@ import {
   applyMoves,
   capturesToState,
   createEmptyState,
+  faceToCenterColor,
+  mapStateColors,
+  normalizeStateByCenters,
   parseSolution,
   stateToFacelets,
-  validateCubeState,
+  validateScannedState,
   type CubeState,
   type FaceCapture,
   type FaceKey,
@@ -35,9 +39,14 @@ function App() {
   const [transitionMove, setTransitionMove] = useState<ParsedMove | undefined>();
 
   const state = useMemo(() => capturesToState(captures), [captures]);
-  const validationErrors = useMemo(() => validateCubeState(state), [state]);
+  const solverState = useMemo(() => normalizeStateByCenters(state), [state]);
+  const displayColorMap = useMemo(() => faceToCenterColor(state), [state]);
+  const validationErrors = useMemo(() => validateScannedState(state), [state]);
   const currentFace = SCAN_ORDER[captures.length] ?? "D";
-  const previewState = useMemo(() => applyMoves(state, solution.slice(0, step)), [state, solution, step]);
+  const previewState = useMemo(() => {
+    if (solution.length === 0) return state;
+    return mapStateColors(applyMoves(solverState, solution.slice(0, step)), displayColorMap);
+  }, [state, solverState, solution, step, displayColorMap]);
   const capturedFaces = useMemo(() => new Set(captures.map((capture) => capture.face)), [captures]);
 
   const handleFaceCapture = (colors: FaceKey[]) => {
@@ -93,7 +102,7 @@ function App() {
     setSolution([]);
     setStep(0);
     setTransitionMove(undefined);
-    setStatus(`${FACE_NAMES[face]} sticker ${index + 1} set to ${FACE_NAMES[color]}.`);
+    setStatus(`${FACE_NAMES[face]} sticker ${index + 1} set to ${COLOR_NAMES[color]}.`);
   };
 
   const handleSolve = async () => {
@@ -416,7 +425,7 @@ function ScanGuideOverlay({
       </div>
       <div className="scan-guide-detail">
         <span className="scan-color-chip" style={{ background: FACE_COLORS[currentFace] }} />
-        <span>{complete ? "Review or solve" : `${centerColorName(currentFace)} center facing camera`}</span>
+        <span>{complete ? "Review or solve" : `${FACE_NAMES[currentFace]} center facing camera`}</span>
       </div>
       <span className="scan-step">{complete ? `${SCAN_ORDER.length} / ${SCAN_ORDER.length}` : `${step} / ${SCAN_ORDER.length}`}</span>
       <button className="scan-help-button" type="button" onClick={onHelp} aria-label="Scan setup help">
@@ -458,19 +467,10 @@ function ScanHelpDialog({ onClose }: { onClose: () => void }) {
             </span>
           ))}
         </div>
-        <p className="scan-help-note">Assumes the standard color scheme: white/yellow, green/blue, red/orange.</p>
+        <p className="scan-help-note">Uses captured center stickers to map cube colors.</p>
       </div>
     </div>
   );
-}
-
-function centerColorName(face: FaceKey): string {
-  if (face === "U") return "White";
-  if (face === "F") return "Green";
-  if (face === "R") return "Red";
-  if (face === "B") return "Blue";
-  if (face === "L") return "Orange";
-  return "Yellow";
 }
 
 function GridOverlay() {
@@ -484,19 +484,42 @@ function GridOverlay() {
 }
 
 function Progress({ captures, currentFace, complete }: { captures: FaceCapture[]; currentFace: FaceKey; complete: boolean }) {
+  const capturedCenterByFace = new Map(captures.map((capture) => [capture.face, capture.colors[4] as FaceKey]));
+  const customSchemeFaces = SCAN_ORDER.filter((face) => {
+    const center = capturedCenterByFace.get(face);
+    return center && center !== face;
+  });
+  const hasCustomScheme = customSchemeFaces.length > 0;
+
   return (
-    <div className="scan-progress" aria-label="Scan progress">
-      {SCAN_ORDER.map((face) => {
-        const done = captures.some((capture) => capture.face === face);
-        const active = !complete && face === currentFace;
-        return (
-          <div className={done ? "progress-item done" : active ? "progress-item active" : "progress-item"} key={face}>
-            <span style={{ background: FACE_COLORS[face] }} />
-            <strong>{FACE_NAMES[face]}</strong>
-          </div>
-        );
-      })}
-    </div>
+    <>
+      <div className="scan-progress" aria-label="Scan progress">
+        {SCAN_ORDER.map((face) => {
+          const capturedCenter = capturedCenterByFace.get(face);
+          const done = Boolean(capturedCenter);
+          const active = !complete && face === currentFace;
+          const chipColor = capturedCenter ? FACE_COLORS[capturedCenter] : FACE_COLORS[face];
+          const colorLabel = capturedCenter
+            ? `${COLOR_NAMES[capturedCenter]} center`
+            : `Typical ${COLOR_NAMES[face]}`;
+
+          return (
+            <div className={done ? "progress-item done" : active ? "progress-item active" : "progress-item"} key={face}>
+              <span style={{ background: chipColor }} />
+              <div>
+                <strong>{FACE_NAMES[face]}</strong>
+                <small>{colorLabel}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {hasCustomScheme ? (
+        <p className="scheme-note">
+          This scan uses the captured center colors for face mapping.
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -523,7 +546,7 @@ function FaceletEditor({
               const selected = selectedSticker?.face === face && selectedSticker.index === index;
               return (
                 <button
-                  aria-label={`${FACE_NAMES[face]} sticker ${index + 1}${color ? `, ${FACE_NAMES[color as FaceKey]}` : ""}`}
+                  aria-label={`${FACE_NAMES[face]} sticker ${index + 1}${color ? `, ${COLOR_NAMES[color as FaceKey]}` : ""}`}
                   className={selected ? "sticker-swatch selected" : "sticker-swatch"}
                   disabled={!color}
                   key={`${face}-${index}`}
@@ -540,13 +563,13 @@ function FaceletEditor({
       <div className="color-palette" aria-label="Sticker color correction">
         {FACE_ORDER.map((face) => (
           <button
-            aria-label={FACE_NAMES[face]}
+            aria-label={COLOR_NAMES[face]}
             className={selectedColor === face ? "palette-swatch active" : "palette-swatch"}
             disabled={!selectedSticker}
             key={face}
             onClick={() => onColor(face)}
             style={{ background: FACE_COLORS[face] }}
-            title={FACE_NAMES[face]}
+            title={COLOR_NAMES[face]}
             type="button"
           />
         ))}

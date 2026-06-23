@@ -552,6 +552,35 @@ h2 {
   flex: 0 0 auto;
 }
 
+.progress-item div {
+  min-width: 0;
+}
+
+.progress-item strong,
+.progress-item small {
+  display: block;
+}
+
+.progress-item small {
+  margin-top: 1px;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.scheme-note {
+  margin: -6px 18px 18px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #475569;
+  background: #f8fafc;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .status-line {
   margin: 0 18px 18px;
   border-radius: 8px;

@@ -13,6 +13,15 @@ export const FACE_NAMES: Record<FaceKey, string> = {
   B: "Back",
 };
 
+export const COLOR_NAMES: Record<FaceKey, string> = {
+  U: "White",
+  R: "Red",
+  F: "Green",
+  D: "Yellow",
+  L: "Orange",
+  B: "Blue",
+};
+
 export const FACE_COLORS: Record<FaceKey, string> = {
   U: "#f8fafc",
   R: "#ef4444",
@@ -111,7 +120,80 @@ export function stateToFacelets(state: CubeState): string {
   return FACE_ORDER.flatMap((face) => state[face]).join("");
 }
 
+export function centerColorToFace(state: CubeState): Partial<Record<FaceKey, FaceKey>> {
+  const mapping: Partial<Record<FaceKey, FaceKey>> = {};
+  for (const face of FACE_ORDER) {
+    const center = state[face][4];
+    if (FACE_ORDER.includes(center as FaceKey)) {
+      mapping[center as FaceKey] = face;
+    }
+  }
+  return mapping;
+}
+
+export function faceToCenterColor(state: CubeState): Partial<Record<FaceKey, FaceKey>> {
+  const mapping: Partial<Record<FaceKey, FaceKey>> = {};
+  for (const face of FACE_ORDER) {
+    const center = state[face][4];
+    if (FACE_ORDER.includes(center as FaceKey)) {
+      mapping[face] = center as FaceKey;
+    }
+  }
+  return mapping;
+}
+
+export function normalizeStateByCenters(state: CubeState): CubeState {
+  const colorToFace = centerColorToFace(state);
+  const next = createEmptyState();
+
+  for (const face of FACE_ORDER) {
+    next[face] = state[face].map((color) => colorToFace[color as FaceKey] ?? "");
+  }
+
+  return next;
+}
+
+export function mapStateColors(state: CubeState, mapping: Partial<Record<FaceKey, FaceKey>>): CubeState {
+  const next = createEmptyState();
+  for (const face of FACE_ORDER) {
+    next[face] = state[face].map((color) => mapping[color as FaceKey] ?? color);
+  }
+  return next;
+}
+
+export function validateScannedState(state: CubeState): string[] {
+  const errors = validateStickerSet(state);
+  const centers = FACE_ORDER.map((face) => state[face][4]).filter(Boolean);
+
+  if (new Set(centers).size !== centers.length) {
+    errors.push("Each captured face center must have a different color.");
+  }
+
+  if (centers.length === FACE_ORDER.length && new Set(centers).size === FACE_ORDER.length && errors.length === 0) {
+    errors.push(...validateCubeState(normalizeStateByCenters(state)));
+  }
+
+  return errors;
+}
+
 export function validateCubeState(state: CubeState): string[] {
+  const errors: string[] = [];
+  errors.push(...validateStickerSet(state));
+
+  for (const face of FACE_ORDER) {
+    if (state[face][4] && state[face][4] !== face) {
+      errors.push(`${FACE_NAMES[face]} center is ${COLOR_NAMES[state[face][4] as FaceKey]}; expected ${COLOR_NAMES[face]}.`);
+    }
+  }
+
+  if (errors.length === 0) {
+    errors.push(...validateCubieLegality(stateToFacelets(state)));
+  }
+
+  return errors;
+}
+
+function validateStickerSet(state: CubeState): string[] {
   const errors: string[] = [];
   const facelets = stateToFacelets(state);
   const hasMissingStickers = FACE_ORDER.some((face) => state[face].some((value) => value === ""));
@@ -140,10 +222,6 @@ export function validateCubeState(state: CubeState): string[] {
   const centers = FACE_ORDER.map((face) => state[face][4]).filter(Boolean);
   if (new Set(centers).size !== 6) {
     errors.push("Each center sticker must map to a different cube color.");
-  }
-
-  if (errors.length === 0) {
-    errors.push(...validateCubieLegality(facelets));
   }
 
   return errors;
