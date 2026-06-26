@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-06-23
+Last updated: 2026-06-26
 
 ## Current State
 
@@ -12,8 +12,9 @@ Implemented:
 - White-balance calibration from the center sample.
 - LAB nearest-color classification.
 - Six-face capture flow in app order: Top, Front, Right, Back, Left, Bottom.
-- Center-based color mapping before validation and solving, so non-typical red/orange handedness can work when face positions are scanned correctly.
+- Center-based color mapping before validation and solving, so non-standard physical color schemes can work when face positions are scanned correctly.
 - Progress UI that starts with typical color hints and then shows captured center colors, with a calm note when the captured scheme differs.
+- Compact per-face scan orientation hints in the camera overlay plus a help dialog that explains Top/U, Front/F, side-face, and Bottom/D orientation.
 - Manual sticker correction via clickable mini net and color palette.
 - Cube validation for counts, centers, invalid pieces, duplicate pieces, orientation sums, and parity.
 - Dynamic `cubejs@1.1.0` solver loading.
@@ -28,7 +29,7 @@ Implemented:
 - Main branch: `master`
 - Merged feature branch: `feature/mobile-3d-guidance`
 - Latest merge commit at time of this note: `c8463cc Merge mobile 3D guidance`
-- Active branch at time of this note: `feature/center-color-mapping`
+- Active branch at time of this note: `feature/scan-orientation-help`
 
 Useful commands:
 
@@ -46,6 +47,7 @@ npm run dev -- --port 5173
 - The 3D preview state has been verified against `cubejs` for basic moves and a generated full solution.
 - The app still relies on fixed-grid sampling; camera alignment and lighting matter.
 - Captured physical colors are normalized through the six center stickers before solver validation. UI playback maps solver state back to the captured center colors.
+- Scan orientation is position-based rather than color-mandated: choose a consistent Top/U and adjacent Front/F. Capture U with the front edge at the bottom, side faces with the top edge at the top, and D with the front edge at the top.
 - Camera mirroring is not corrected yet. Use a non-mirrored rear phone camera when possible; mirrored webcam/front-camera feeds can still reverse sticker order.
 
 ## Recommended Next Iteration

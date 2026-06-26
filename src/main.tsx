@@ -416,6 +416,7 @@ function ScanGuideOverlay({
   onHelp: () => void;
 }) {
   const step = Math.min(capturedCount + 1, SCAN_ORDER.length);
+  const orientationTag = getScanOrientationTag(currentFace);
 
   return (
     <div className="scan-guide-card" aria-hidden="true">
@@ -425,7 +426,7 @@ function ScanGuideOverlay({
       </div>
       <div className="scan-guide-detail">
         <span className="scan-color-chip" style={{ background: FACE_COLORS[currentFace] }} />
-        <span>{complete ? "Review or solve" : `${FACE_NAMES[currentFace]} center facing camera`}</span>
+        <span>{complete ? "Review or solve" : `${FACE_NAMES[currentFace]} center to camera · ${orientationTag}`}</span>
       </div>
       <span className="scan-step">{complete ? `${SCAN_ORDER.length} / ${SCAN_ORDER.length}` : `${step} / ${SCAN_ORDER.length}`}</span>
       <button className="scan-help-button" type="button" onClick={onHelp} aria-label="Scan setup help">
@@ -434,6 +435,12 @@ function ScanGuideOverlay({
       {countdown > 0 ? <em>{countdown}</em> : null}
     </div>
   );
+}
+
+function getScanOrientationTag(face: FaceKey) {
+  if (face === "U") return "Front edge ↓";
+  if (face === "D") return "Front edge ↑";
+  return "Top edge ↑";
 }
 
 function ScanHelpDialog({ onClose }: { onClose: () => void }) {
@@ -446,18 +453,18 @@ function ScanHelpDialog({ onClose }: { onClose: () => void }) {
             <X size={16} />
           </button>
         </div>
-        <p>Use the center stickers as the reference. Centers stay fixed even when the cube is shuffled.</p>
+        <p>Choose a consistent Top/U center and an adjacent Front/F center before scanning. Centers stay fixed even when the cube is shuffled.</p>
         <div className="scan-orientation-diagram" aria-hidden="true">
           <img src={orientationGuide} alt="" />
           <div>
             <strong>Start position</strong>
-            <span>White center on top, green center facing camera.</span>
+            <span>For a standard cube this is usually white on top and green facing camera, but your cube may differ.</span>
           </div>
         </div>
         <ol>
-          <li>Hold the white center on top.</li>
-          <li>Turn the cube so the green center faces the camera.</li>
-          <li>Scan the requested center colors in order.</li>
+          <li>Top/U: top center to camera, front edge at the bottom.</li>
+          <li>F/R/B/L: requested side center to camera, top edge at the top.</li>
+          <li>Bottom/D: bottom center to camera, front edge at the top.</li>
         </ol>
         <div className="scan-help-colors">
           {SCAN_ORDER.map((face, index) => (
@@ -467,7 +474,7 @@ function ScanHelpDialog({ onClose }: { onClose: () => void }) {
             </span>
           ))}
         </div>
-        <p className="scan-help-note">Uses captured center stickers to map cube colors.</p>
+        <p className="scan-help-note">The app maps colors from captured centers. Rotated captures can pass color counts but fail validation.</p>
       </div>
     </div>
   );

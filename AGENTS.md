@@ -59,7 +59,7 @@ Main files:
 Current Git state:
 
 - Repository is initialized.
-- Working branch at time of this note: `feature/center-color-mapping`.
+- Working branch at time of this note: `feature/scan-orientation-help`.
 - `master` includes the merged `feature/mobile-3d-guidance` branch.
 - Latest completed merge commit before this branch: `c8463cc Merge mobile 3D guidance`.
 
@@ -69,8 +69,8 @@ The scanner currently uses fixed 3x3 grid sampling, not full OpenCV contour dete
 
 User flow:
 
-1. Show the white-center face to the camera.
-2. Align the 9 stickers in the overlay.
+1. Choose a consistent Top/U center and adjacent Front/F center.
+2. Align the requested face with the 9 stickers in the overlay, preserving orientation.
 3. Click `Calibrate`.
 4. Capture faces in this sequence:
    - Top
@@ -87,6 +87,8 @@ Calibration currently samples only the center grid cell as the white reference.
 Captured sticker colors are stored as physical color labels first. Before validation and solving, the app maps colors to logical cube faces using the six captured center stickers. This supports cubes where the physical color scheme differs from the typical `R = red` and `L = orange` assignment, as long as the requested physical face positions are scanned correctly.
 
 The scan progress UI starts with typical color hints, then switches each completed face to its captured center color. If a captured center differs from the typical scheme, the app shows a calm note that center colors define the face mapping for the scan.
+
+The camera overlay shows compact orientation tags: U uses `Front edge ↓`, side faces use `Top edge ↑`, and D uses `Front edge ↑`. The `?` help dialog explains that Top/U and Front/F are position references, not mandatory physical colors.
 
 After capture, users can click stickers in the mini net and select a replacement color from the palette. Manual edits clear stale solution playback.
 
@@ -175,7 +177,7 @@ Last verified:
 npm run build
 ```
 
-Passed on `feature/center-color-mapping`. Vite may warn that the graphics chunk is larger than 500 kB because Three.js is bundled separately as `graphics`.
+Passed on `feature/scan-orientation-help`. Vite may warn that the graphics chunk is larger than 500 kB because Three.js is bundled separately as `graphics`.
 
 Earlier production audit status:
 
